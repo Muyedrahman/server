@@ -5,7 +5,7 @@ const { MongoClient, ServerApiVersion } = require("mongodb");
 const admin = require("firebase-admin");
 const port = process.env.PORT || 3000;
 const decoded = Buffer.from(process.env.FB_SERVICE_KEY, "base64").toString(
-  "utf-8"
+  "utf-8",
 );
 const serviceAccount = JSON.parse(decoded);
 admin.initializeApp({
@@ -197,7 +197,7 @@ app.patch("/users/:email", async (req, res) => {
       const { id } = req.params;
       const updateData = req.body;
 
-      delete updateData._id; // ✅ double safety
+      delete updateData._id; // 
 
       try {
         const result = await donationRequestCollection.updateOne(
