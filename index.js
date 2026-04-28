@@ -18,14 +18,24 @@ admin.initializeApp({
 });
 
 //  Middleware
+// app.use(
+//   cors({
+//     origin: [process.env.CLIENT_DOMAIN],
+//     credentials: true,
+//     optionSuccessStatus: 200,
+//   }),
+// );
 app.use(
   cors({
-    origin: [process.env.CLIENT_DOMAIN],
+    origin: process.env.CLIENT_DOMAIN,
     credentials: true,
-    optionSuccessStatus: 200,
   }),
 );
+
+app.options("*", cors());
+// 
 app.use(express.json());
+
 
 //  একটাই verifyJWT (দুইটা দরকার নাই)
 const verifyJWT = async (req, res, next) => {
@@ -123,16 +133,34 @@ async function run() {
     // DONATION REQUEST ROUTES
     // =============================
 
-    //  Create donation request
+    //1.xs  Create donation request
     app.post("/donation-requests", async (req, res) => {
       const request = req.body;
+
+      //  Blocked user চেক
+      const user = await usersCollection.findOne({
+        email: request.requesterEmail,
+      });
+      if (user?.status === "blocked") {
+        return res.status(403).send({
+          message: "Blocked user cannot create request",
+        });
+      }
+
       request.status = "pending";
       request.createdAt = new Date();
       const result = await donationRequestCollection.insertOne(request);
       res.send(result);
     });
+    // app.post("/donation-requests", async (req, res) => {
+    //   const request = req.body;
+    //   request.status = "pending";
+    //   request.createdAt = new Date();
+    //   const result = await donationRequestCollection.insertOne(request);
+    //   res.send(result);
+    // });
 
-    //  Get all donation requests (filter + limit)
+    //2.  Get all donation requests (filter + limit)
     app.get("/donation-requests", async (req, res) => {
       const { email, status, limit } = req.query;
       let query = {};
@@ -146,7 +174,7 @@ async function run() {
       res.send(result);
     });
 
-    //XS1  Donor এর নিজের requests - /my আগে রাখতে হবে  
+    //3. XS1  Donor এর নিজের requests - /my আগে রাখতে হবে
     app.get("/donation-requests/my", async (req, res) => {
       const { email, limit } = req.query;
       const query = { requesterEmail: email };
@@ -158,7 +186,19 @@ async function run() {
       res.send(result);
     });
 
-    //  Get single donation request - :id পরে রাখতে হবে
+    // XS2 index.js a asa nisa aga ei asa 
+    // app.get("/statistics", verifyJWT, async (req, res) => {
+    //   const totalUsers = await usersCollection.countDocuments({
+    //     role: "donor",
+    //   });
+    //   const totalRequests = await donationRequestCollection.countDocuments();
+    //   const funds = await fundsCollection.find().toArray();
+    //   const totalFunding = funds.reduce((sum, f) => sum + f.amount, 0);
+
+    //   res.send({ totalUsers, totalRequests, totalFunding });
+    // });
+
+    //4.  Get single donation request - :id পরে রাখতে হবে
     app.get("/donation-requests/:id", async (req, res) => {
       const { id } = req.params;
       const result = await donationRequestCollection.findOne({
@@ -167,7 +207,7 @@ async function run() {
       res.send(result);
     });
 
-    //  Edit donation request
+    //5.  Edit donation request
     app.patch("/donation-requests/:id", async (req, res) => {
       const { id } = req.params;
       const updateData = { ...req.body };
@@ -179,7 +219,7 @@ async function run() {
       res.send(result);
     });
 
-    // Donate (pending → inprogress)
+    //6. Donate (pending → inprogress)
     app.patch("/donation-requests/:id/donate", verifyJWT, async (req, res) => {
       const { id } = req.params;
       const { donorName, donorEmail } = req.body;
@@ -197,7 +237,7 @@ async function run() {
       res.send(result);
     });
 
-    //  Delete donation request
+    // 7. Delete donation request
     app.delete("/donation-requests/:id", async (req, res) => {
       const { id } = req.params;
       const result = await donationRequestCollection.deleteOne({
