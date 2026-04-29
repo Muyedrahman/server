@@ -4,10 +4,10 @@ const cors = require("cors");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const admin = require("firebase-admin");
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
-
 const port = process.env.PORT || 3000;
 const app = express();
 
+console.log("STRIPE KEY:", process.env.STRIPE_SECRET_KEY);
 //  Firebase Admin Init
 const decoded = Buffer.from(process.env.FB_SERVICE_KEY, "base64").toString(
   "utf-8",
@@ -90,11 +90,24 @@ async function run() {
 
     //  Get user role
     app.get("/user/role", verifyJWT, async (req, res) => {
-      const result = await usersCollection.findOne({
-        email: req.tokenEmail,
-      });
-      res.send({ role: result?.role });
+      try {
+        const user = await usersCollection.findOne({
+          email: req.tokenEmail,
+        });
+
+        const role = user?.role || "donor";
+
+        res.send({ role });
+      } catch (error) {
+        res.status(500).send({ role: "donor", message: "Server error" });
+      }
     });
+    // app.get("/user/role", verifyJWT, async (req, res) => {
+    //   const result = await usersCollection.findOne({
+    //     email: req.tokenEmail,
+    //   });
+    //   res.send({ role: result?.role });
+    // });
 
     //  Update profile (email দিয়ে)
     app.patch("/users/update/:email", async (req, res) => {
