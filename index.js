@@ -18,23 +18,24 @@ admin.initializeApp({
 });
 
 //  Middleware
-// app.use(
-//   cors({
-//     origin: [process.env.CLIENT_DOMAIN],
-//     credentials: true,
-//     optionSuccessStatus: 200,
-//   }),
-// );
 app.use(
   cors({
-    origin: process.env.CLIENT_DOMAIN,
+    origin: [process.env.CLIENT_DOMAIN],
     credentials: true,
+    optionSuccessStatus: 200,
   }),
 );
-
-app.options("*", cors());
-// 
 app.use(express.json());
+// app.use(
+//   cors({
+//     origin: process.env.CLIENT_DOMAIN,
+//     credentials: true,
+//   }),
+// );
+
+// app.options("*", cors());
+// 
+
 
 
 //  একটাই verifyJWT (দুইটা দরকার নাই)
