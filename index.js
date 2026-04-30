@@ -87,6 +87,13 @@ async function run() {
       const result = await usersCollection.find(query).toArray();
       res.send(result);
     });
+    // ✅ 🔥 ADD THIS HERE (এই লাইনের পরেই)
+    app.get("/users/:email", async (req, res) => {
+      const user = await usersCollection.findOne({
+        email: req.params.email,
+      });
+      res.send(user);
+    });
 
     //  Get user role
     app.get("/user/role", verifyJWT, async (req, res) => {
@@ -200,7 +207,7 @@ async function run() {
       res.send(result);
     });
 
-    // XS2 index.js a asa nisa aga ei asa 
+    // XS2 index.js a asa nisa aga ei asa
     // app.get("/statistics", verifyJWT, async (req, res) => {
     //   const totalUsers = await usersCollection.countDocuments({
     //     role: "donor",
