@@ -37,7 +37,6 @@ app.use(express.json());
 // 
 
 
-
 //  একটাই verifyJWT (দুইটা দরকার নাই)
 const verifyJWT = async (req, res, next) => {
   const token = req?.headers?.authorization?.split(" ")[1];
@@ -80,7 +79,7 @@ async function run() {
       res.send(result);
     });
 
-    //  Get all users
+    //  Get all users 
     app.get("/users", async (req, res) => {
       const { status } = req.query;
       const query = status ? { status } : {};
