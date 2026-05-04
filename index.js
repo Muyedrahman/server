@@ -184,6 +184,7 @@ async function run() {
     app.get("/donation-requests", async (req, res) => {
       const { email, status, limit } = req.query;
       let query = {};
+      // let query = {};
       if (email) query.requesterEmail = email;
       if (status) query.status = status;
       let cursor = donationRequestCollection
