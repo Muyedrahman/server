@@ -293,8 +293,9 @@ async function run() {
       res.send({ totalUsers, totalRequests, totalFunding });
     });
 
-    await client.db("admin").command({ ping: 1 });
-    console.log("Connected to MongoDB!");
+    // dend a ping to confirm a successful commection
+    // await client.db("admin").command({ ping: 1 });
+    // console.log("Connected to MongoDB!");
   } finally {
   }
 }
