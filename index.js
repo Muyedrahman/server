@@ -17,11 +17,17 @@ admin.initializeApp({
 });
 
 //  Middleware 
+// app.use(
+//   cors({
+//     origin: [process.env.CLIENT_DOMAIN],
+//     credentials: true,
+//     optionSuccessStatus: 200,
+//   }),
+// );
 app.use(
   cors({
-    origin: [process.env.CLIENT_DOMAIN],
+    origin: ["http://localhost:5173", process.env.CLIENT_DOMAIN],
     credentials: true,
-    optionSuccessStatus: 200,
   }),
 );
 app.use(express.json());
@@ -57,9 +63,8 @@ async function run() {
     const donationRequestCollection = db.collection("donationRequests");
     const fundsCollection = db.collection("funds");
 
-   
     // USER ROUTES
-    
+
     //  Register
     app.post("/users", async (req, res) => {
       const user = req.body;
@@ -69,14 +74,14 @@ async function run() {
       res.send(result);
     });
 
-    //  Get all users 
+    //  Get all users
     app.get("/users", async (req, res) => {
       const { status } = req.query;
       const query = status ? { status } : {};
       const result = await usersCollection.find(query).toArray();
       res.send(result);
     });
-    //  ADD THIS HERE 
+    //  ADD THIS HERE
     app.get("/users/:email", async (req, res) => {
       const user = await usersCollection.findOne({
         email: req.params.email,
@@ -99,8 +104,7 @@ async function run() {
       }
     });
 
-
-    //  Update profile 
+    //  Update profile
     app.patch("/users/update/:email", async (req, res) => {
       const { email } = req.params;
       const updateData = { ...req.body };
@@ -112,7 +116,7 @@ async function run() {
       res.send(result);
     });
 
-    //  Block/Unblock user id 
+    //  Block/Unblock user id
     app.patch("/users/:id/status", async (req, res) => {
       const { id } = req.params;
       const { status } = req.body;
@@ -123,7 +127,7 @@ async function run() {
       res.send(result);
     });
 
-    //  Change user role id 
+    //  Change user role id
     app.patch("/users/:id/role", async (req, res) => {
       const { id } = req.params;
       const { role } = req.body;
@@ -134,9 +138,8 @@ async function run() {
       res.send(result);
     });
 
-   
     // DONATION REQUEST ROUTES
-   
+
     //1.xs  Create donation request
     app.post("/donation-requests", async (req, res) => {
       const request = req.body;
@@ -156,13 +159,12 @@ async function run() {
       const result = await donationRequestCollection.insertOne(request);
       res.send(result);
     });
-    
 
-    //2.  Get all donation requests 
+    //2.  Get all donation requests
     app.get("/donation-requests", async (req, res) => {
       const { email, status, limit } = req.query;
       let query = {};
-      
+
       if (email) query.requesterEmail = email;
       if (status) query.status = status;
       let cursor = donationRequestCollection
@@ -185,8 +187,7 @@ async function run() {
       res.send(result);
     });
 
-
-    //4.  Get single donation request 
+    //4.  Get single donation request
     app.get("/donation-requests/:id", async (req, res) => {
       const { id } = req.params;
       const result = await donationRequestCollection.findOne({
@@ -234,7 +235,6 @@ async function run() {
       res.send(result);
     });
 
-
     // FUNDING ROUTES
 
     //  Get all funds
@@ -243,7 +243,7 @@ async function run() {
       res.send(funds);
     });
 
-    //  Save fund -->payment success  call 
+    //  Save fund -->payment success  call
     app.post("/funds", verifyJWT, async (req, res) => {
       const { name, email, amount } = req.body;
       const fund = {
@@ -278,25 +278,115 @@ async function run() {
       res.send({ url: session.url });
     });
 
-
-
     // STATISTICS (Admin/Volunteer)
 
     //  Admin Dashboard Stats
+    // app.get("/statistics", verifyJWT, async (req, res) => {
+    //   const totalUsers = await usersCollection.countDocuments({
+    //     role: "donor",
+    //   });
+    //   const totalRequests = await donationRequestCollection.countDocuments();
+    //   const funds = await fundsCollection.find().toArray();
+    //   const totalFunding = funds.reduce((sum, f) => sum + f.amount, 0);
+    //   res.send({ totalUsers, totalRequests, totalFunding });
+    // });
+    // 2 Admin Dashboard Stats
     app.get("/statistics", verifyJWT, async (req, res) => {
-      const totalUsers = await usersCollection.countDocuments({
-        role: "donor",
-      });
-      const totalRequests = await donationRequestCollection.countDocuments();
-      const funds = await fundsCollection.find().toArray();
-      const totalFunding = funds.reduce((sum, f) => sum + f.amount, 0);
-      res.send({ totalUsers, totalRequests, totalFunding });
+      try {
+        // ── Basic counts ──
+        const totalUsers = await usersCollection.countDocuments({
+          role: "donor",
+        });
+        const totalRequests = await donationRequestCollection.countDocuments();
+        const funds = await fundsCollection.find().toArray();
+        const totalFunding = funds.reduce((sum, f) => sum + f.amount, 0);
+
+        // ── Blood group distribution (Pie Chart) ──
+        const bloodGroupAgg = await donationRequestCollection
+          .aggregate([
+            { $group: { _id: "$bloodGroup", value: { $sum: 1 } } },
+            { $project: { _id: 0, name: "$_id", value: 1 } },
+            { $sort: { value: -1 } },
+          ])
+          .toArray();
+
+        // ── Monthly requests (Bar Chart) ──
+        const monthlyAgg = await donationRequestCollection
+          .aggregate([
+            {
+              $group: {
+                _id: { $month: "$createdAt" },
+                requests: { $sum: 1 },
+              },
+            },
+            { $sort: { _id: 1 } },
+          ])
+          .toArray();
+
+        const monthNames = [
+          "Jan",
+          "Feb",
+          "Mar",
+          "Apr",
+          "May",
+          "Jun",
+          "Jul",
+          "Aug",
+          "Sep",
+          "Oct",
+          "Nov",
+          "Dec",
+        ];
+        const monthlyData = monthlyAgg.map((m) => ({
+          month: monthNames[m._id - 1],
+          requests: m.requests,
+        }));
+
+        // ── Monthly fund collection (Line Chart) ──
+        const fundMonthlyAgg = await fundsCollection
+          .aggregate([
+            {
+              $group: {
+                _id: { $month: "$date" },
+                amount: { $sum: "$amount" },
+              },
+            },
+            { $sort: { _id: 1 } },
+          ])
+          .toArray();
+
+        const fundData = fundMonthlyAgg.map((f) => ({
+          month: monthNames[f._id - 1],
+          amount: f.amount,
+        }));
+
+        // ── Status breakdown ──
+        const statusAgg = await donationRequestCollection
+          .aggregate([
+            { $group: { _id: "$status", count: { $sum: 1 } } },
+            { $project: { _id: 0, status: "$_id", count: 1 } },
+          ])
+          .toArray();
+
+        res.send({
+          totalUsers,
+          totalRequests,
+          totalFunding,
+          bloodGroupData: bloodGroupAgg,
+          monthlyData,
+          fundData,
+          statusData: statusAgg,
+        });
+      } catch (err) {
+        res.status(500).send({ message: err.message });
+      }
     });
 
     // dend a ping to confirm a successful commection
     // await client.db("admin").command({ ping: 1 });
     // console.log("Connected to MongoDB!");
   } finally {
+
   }
 }
 
